@@ -24,7 +24,8 @@ import matplotlib.pyplot as plt
 import calendar
 import xarray as xr
 import warnings
-#import cdtime
+import cftime
+import pandas as pd
 import math
 #cdtime.DefaultCalendar=cdtime.GregorianCalendar
 from operator import and_
@@ -264,28 +265,31 @@ def calcOverturning(transList,typ):
                 return tmp
 
 #Compute monthly average of daily values (for 2D variables)
-def monthAve(var,time):
-    datelist = time.asComponentTime()
-    monthave = []
-    #get month, value of first date
-    month = datelist[0].month
-    val_sum = var[0,:,:]
-    count = 1
-    #loop over all dates
-    for index, d in enumerate(datelist[1:]):
-        if d.month==month: #same month 
-            count += 1
-            val_sum += var[index+1,:,:] #add value to sum
-        else: #new month
-            monthave.append(val_sum/count) #calculate average for previous month and add to list
-            val_sum = var[index+1,:,:] #get first value for the new month
-            count = 1
-            month = d.month
-    #append last month to list 
-    monthave.append(val_sum/count)
-    monthave_shape = np.shape(np.array(monthave))
-    # print(f'monthly ave has shape: {monthave_shape}')
-    return np.array(monthave)
+def monthAve(ds, method="mean"):
+    if method == "mean":
+        monthly_ds = ds.resample(time="M").mean()
+    elif method == "sum":
+        monthly_ds = ds.resample(time="M").sum()
+    elif method == "max":
+        monthly_ds = ds.resample(time="M").max()
+    elif method == "min":
+        monthly_ds = ds.resample(time="M").min()
+    else:
+        raise ValueError("Unsupported method. Use 'mean', 'sum', 'max', or 'min'.")
+
+    sample_time = monthly_ds["time"].values[0]
+    time_type = type(sample_time)
+
+    if isinstance(sample_time, np.datetime64): 
+        new_time_index = [pd.Timestamp(t).replace(day=16) for t in monthly_ds["time"].values]
+    elif isinstance(sample_time, cftime.datetime):
+        new_time_index = [time_type(t.year, t.month, 16) for t in monthly_ds["time"].values]
+    else:
+        raise TypeError(f"Unsupported time format: {time_type}")
+
+    monthly_ds = monthly_ds.assign_coords(time=new_time_index)
+
+    return monthly_ds
 
 #calculate a climatology of monthly means
 def monthClim(var,time,vals_wsum,clim_days):

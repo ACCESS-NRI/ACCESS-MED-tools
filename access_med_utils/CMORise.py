@@ -162,7 +162,7 @@ def create_structure_dict(result_dict):
     return structure_dict
 
 
-def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict):
+def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=False):
     '''
     Main function, trigger the whole mapping process
 
@@ -175,13 +175,23 @@ def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict):
     config_path: str
         path to ilamb config file
     '''
-    history_path = noncmip_path + '/history/'
     master_map_path='./master_map.csv'
+    # print(mip_vars_dict)
     var_mapping_dic = Parse_config_var(mip_vars_dict, master_map_path)
-    result_dict = create_result_dict(var_mapping_dic, history_path)
-    structure_dict = create_structure_dict(result_dict)
+    if ESM1_6:
+        for output in outputs:
+            output_path = f"{noncmip_path}/{output}/"
+            result_dict = create_result_dict(var_mapping_dic, output_path)
+            structure_dict = create_structure_dict(result_dict)
+            new_path=f"{new_nc_path}/{output}"
+            new_netcdf(output_path, structure_dict, result_dict, new_path)
 
-    new_netcdf(history_path, structure_dict, result_dict, new_nc_path)
+    else:
+        history_path = noncmip_path + '/history/'
+        var_mapping_dic = Parse_config_var(mip_vars_dict, master_map_path)
+        result_dict = create_result_dict(var_mapping_dic, history_path)
+        structure_dict = create_structure_dict(result_dict)
+        new_netcdf(history_path, structure_dict, result_dict, new_nc_path)
 
 
 
