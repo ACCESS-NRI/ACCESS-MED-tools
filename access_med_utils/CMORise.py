@@ -175,7 +175,6 @@ def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=F
         path to ilamb config file
     '''
     master_map_path='./master_map.csv'
-    # print(mip_vars_dict)
     var_mapping_dic = Parse_config_var(mip_vars_dict, master_map_path)
     if ESM1_6:
         for output in outputs:
