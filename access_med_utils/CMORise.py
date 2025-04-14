@@ -8,7 +8,6 @@ import pandas as pd
 import csv
 import glob
 import xarray as xr
-import cdms2
 import datetime
 import numpy as np
 import multiprocessing as mp
@@ -162,7 +161,7 @@ def create_structure_dict(result_dict):
     return structure_dict
 
 
-def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict):
+def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=False):
     '''
     Main function, trigger the whole mapping process
 
@@ -175,13 +174,22 @@ def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict):
     config_path: str
         path to ilamb config file
     '''
-    history_path = noncmip_path + '/history/'
     master_map_path='./master_map.csv'
     var_mapping_dic = Parse_config_var(mip_vars_dict, master_map_path)
-    result_dict = create_result_dict(var_mapping_dic, history_path)
-    structure_dict = create_structure_dict(result_dict)
+    if ESM1_6:
+        for output in outputs:
+            output_path = f"{noncmip_path}/{output}/"
+            result_dict = create_result_dict(var_mapping_dic, output_path)
+            structure_dict = create_structure_dict(result_dict)
+            new_path=f"{new_nc_path}/{output}"
+            new_netcdf(output_path, structure_dict, result_dict, new_path)
 
-    new_netcdf(history_path, structure_dict, result_dict, new_nc_path)
+    else:
+        history_path = noncmip_path + '/history/'
+        var_mapping_dic = Parse_config_var(mip_vars_dict, master_map_path)
+        result_dict = create_result_dict(var_mapping_dic, history_path)
+        structure_dict = create_structure_dict(result_dict)
+        new_netcdf(history_path, structure_dict, result_dict, new_nc_path)
 
 
 
@@ -237,41 +245,44 @@ def mp_newdataset(file_varset):
 
         if len(temp_list[1].split())>=1 and temp_list[2]!='':
             var=[]
-            ds_1=cdms2.open(file,'r')
             for var_num in temp_list[1].split():
-                var.append(ds_1[var_num])
+                var.append(ds[var_num])
         
-            if temp_list[2].find('times')!=-1:
-                times = ds_1[temp_list[1].split()[0]].getTime()
-            if temp_list[2].find('depth')!=-1:
-                depth = ds[temp_list[1].split()[0]].getAxis(1)
-            if temp_list[2].find('lat')!=-1:
-                lat = ds[temp_list[1].split()[0]].getLatitude()
-            if temp_list[2].find('lon')!=-1:
-                lon = ds[temp_list[1].split()[0]].getLatitude()
-            
-
             if temp_list[2]!=None:
                 var_data=eval(temp_list[2])
 
-            ds_1.close()
         else:
             var_data=ds[temp_list[1].strip()]
 
         if isinstance(var_data, xr.core.dataarray.DataArray):
-            temp_ds=xr.Dataset(
-                data_vars=dict(
-                key=var_data,
-                time_bnds=(['bnds'],time_bnds),
-                lat_bnds=(['lat','bnds'],lat_bnds),
-                lon_bnds=(['lon','bnds'],lon_bnds),
-                ),
-                coords=dict(
-                time=ds.coords['time'],
-                lat=ds.coords['lat'],
-                lon=ds.coords['lon'],
-                ),
-            )                    
+            if var_name in ['tasmax','tasmin']:
+                temp_ds=xr.Dataset(
+                    data_vars=dict(
+                    key=var_data,
+                    time_bnds=(['bnds'],time_bnds),
+                    lat_bnds=(['lat','bnds'],lat_bnds),
+                    lon_bnds=(['lon','bnds'],lon_bnds),
+                    ),
+                    coords=dict(
+                    time=var_data.coords['time'],
+                    lat=ds.coords['lat'],
+                    lon=ds.coords['lon'],
+                    ),
+                )
+            else:
+                temp_ds=xr.Dataset(
+                    data_vars=dict(
+                    key=var_data,
+                    time_bnds=(['bnds'],time_bnds),
+                    lat_bnds=(['lat','bnds'],lat_bnds),
+                    lon_bnds=(['lon','bnds'],lon_bnds),
+                    ),
+                    coords=dict(
+                    time=ds.coords['time'],
+                    lat=ds.coords['lat'],
+                    lon=ds.coords['lon'],
+                    ),
+                )      
         else:
             if len(ds.coords['time'])>1:
                 coords_time=ds.coords['time'][0]
@@ -310,8 +321,8 @@ def mp_newdataset(file_varset):
             temp_ds=temp_ds.assign_coords(depth=depth_val)
             temp_ds=temp_ds.assign(depth_bnds=(['depth','bnds'],depth_bounds))
         
-        if var in ['rsus', 'tasmax', 'tasmin', 'cVeg', 'rlus', 'lai', 'nbp', 'cSoil']:
-            temp_ds.time.encoding['units']='days since 1850-1-1 00:00:00' 
+        # if var in ['rsus', 'tasmax', 'tasmin', 'cVeg', 'rlus', 'lai', 'nbp', 'cSoil']:
+        #     temp_ds.time.encoding['units']='days since 1850-1-1 00:00:00' 
         
         if var_name not in ds_dict.keys():
             ds_dict[var_name]=temp_ds

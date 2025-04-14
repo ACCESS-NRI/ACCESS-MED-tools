@@ -36,20 +36,42 @@ get_path_function = {
     "CMIP5": get_CMIP5_path
 }
 
-def add_model_to_tree(ilamb_root, mip, institute, dataset, project, exp, ensemble = None, path = None):
+def add_model_to_tree(ilamb_root, mip, institute, dataset, project, exp = None, ensemble = None, path = None, variables = None, output = None, output_range = None):
     """
     """
 
     if mip == 'non-CMIP':
         print(f"CMORisering {exp} and add result to ILAMB Tree")
-        if path == None:
-            path = rootpath['non-CMIP'][0]
+        if dataset == 'ACCESS-ESM1-6':
+            noncmip_path=path
+            variables_dict = mip_vars
+            variables_dict.pop('Omon')
+            if output_range is not None:
+                if len(output_range) == 2:
+                    if os.path.isdir(f"{path}/output{output_range[0]:03d}") and os.path.isdir(f"{path}/output{output_range[1]:03d}"):
+                        output_list=[f"output{num:03d}" for num in range(int(output_range[0]), int(output_range[1]) + 1)]
+                    else:
+                        print(f"{path}/{output_range[0]}",f"{path}/{output_range[1]}")
+                        raise ValueError("start or end in the output_range is not correct")
+                else:
+                    raise ValueError("Format of output_range is not correct, please input a list [start, end]")
+            elif isinstance(output,str):
+                output_list=list(output)
+            elif isinstance(output,list):
+                output_list=output
+            model_root=f"{ilamb_root}/MODELS/{dataset}"
+            Path(model_root).mkdir(parents=True,exist_ok=True)
+            generate_cmip(noncmip_path,model_root,variables_dict,outputs=output_list, ESM1_6=True)
+        
+        else:
+            if path == None:
+                path = rootpath['non-CMIP'][0]
 
-        noncmip_path=f"{path}/{dataset}/{exp}"
-        model_root=f"{ilamb_root}/MODELS/{dataset}/{exp}"
-        Path(model_root).mkdir(parents=True,exist_ok=True)
-        mip_vars.pop('Omon')
-        generate_cmip(noncmip_path,model_root,mip_vars)
+            noncmip_path=f"{path}/{dataset}/{exp}"
+            model_root=f"{ilamb_root}/MODELS/{dataset}/{exp}"
+            Path(model_root).mkdir(parents=True,exist_ok=True)
+            mip_vars.pop('Omon')
+            generate_cmip(noncmip_path,model_root,mip_vars)
     
     else:
         print(f"Adding {dataset} to the ILAMB Tree")
