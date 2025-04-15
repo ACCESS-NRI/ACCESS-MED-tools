@@ -1,9 +1,9 @@
 [project]
-name = "access_med_utils"
+name = "access_med_tools"
 authors = [
     { name = "ACCESS-NRI" },
 ]
-description = "ACCESS MED Utilities"
+description = "ACCESS MED Tools"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "APACHE-2.0"}
@@ -24,13 +24,13 @@ requires = [
 ]
 
 [project.scripts]
-ilamb-tree-generator = "access_med_utils.ilamb:tree_generator"
-check-hackathon = "access_med_utils.hackathon:check_hackathon"
+ilamb-tree-generator = "access_med_tools.ilamb:tree_generator"
+check-hackathon = "access_med_tools.hackathon:check_hackathon"
 
 [tool.versioneer]
 VCS = "git"
 style = "pep440"
-versionfile_source = "access_med_utils/_version.py"
-versionfile_build = "access_med_utils/_version.py"
+versionfile_source = "access_med_tools/_version.py"
+versionfile_build = "access_med_tools/_version.py"
 tag_prefix = "v"
-parentdir_prefix = "access_med_utils-"
+parentdir_prefix = "access_med_tools-"

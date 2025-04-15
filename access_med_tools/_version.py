@@ -52,8 +52,8 @@ def get_config() -> VersioneerConfig:
     cfg.VCS = "git"
     cfg.style = "pep440"
     cfg.tag_prefix = "v"
-    cfg.parentdir_prefix = "access_med_utils-"
-    cfg.versionfile_source = "access_med_utils/_version.py"
+    cfg.parentdir_prefix = "access_med_tools-"
+    cfg.versionfile_source = "access_med_tools/_version.py"
     cfg.verbose = False
     return cfg
 

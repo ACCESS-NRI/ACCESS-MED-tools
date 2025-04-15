@@ -7,7 +7,7 @@ package:
   version: {{ version }}
 
 source:
-  url: "https://pypi.io/packages/source/a/access-med-utils/access_med_utils-{{ version }}.tar.gz"
+  url: "https://pypi.io/packages/source/a/access-med-tools/access_med_tools-{{ version }}.tar.gz"
 
 build:
   noarch: python
@@ -28,11 +28,11 @@ requirements:
     - netcdf4
 
 about:
-  home: https://github.com/ACCESS-NRI/med-utils
+  home: https://github.com/ACCESS-NRI/ACCESS-MED-tools
   license: Apache Software
   license_family: APACHE
   summary: "ACCESS-MED Utilities"
-  doc_url: https://github.com/ACCESS-NRI/med-utils
+  doc_url: https://github.com/ACCESS-NRI/ACCESS-MED-tools
 
 extra:
   recipe-maintainers:
