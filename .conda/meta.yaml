@@ -21,7 +21,6 @@ requirements:
     - versioneer
   run:
     - python>=3.9
-    - argparse
     - numpy
     - pyyaml
     - dask
