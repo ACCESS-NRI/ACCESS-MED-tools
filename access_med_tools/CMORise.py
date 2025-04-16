@@ -16,7 +16,7 @@ from multiprocessing import Pool
 from collections import defaultdict
 
 os.environ['ANCILLARY_FILES'] = '/g/data/p66/CMIP6/APP_ancils'
-from app_functions import *
+from .app_functions import *
 
 #GLOBAL
 UM_realms = [
