@@ -34,7 +34,7 @@ CICE_realms = [
 
 
 def Parse_config_var(var_dict, master_filename):
-    '''
+    """
     Extract variables based on the config file and extract mapping imformation from master_map.csv
 
     Parameters:
@@ -47,7 +47,7 @@ def Parse_config_var(var_dict, master_filename):
     Returns:
     ------------
     A dict with variable name as key and variable imformation as value
-    '''
+    """
     map_dic={}
     result={}
 
@@ -65,7 +65,7 @@ def Parse_config_var(var_dict, master_filename):
 
 
 def get_filestructure(master_line, history_path, ESM1_6=False):
-    '''
+    """
     Find path to each variable
 
     Parmeters:
@@ -77,7 +77,7 @@ def get_filestructure(master_line, history_path, ESM1_6=False):
     
     Returns:
     conplete noncmip file path
-    '''
+    """
     cmipvar = master_line[0]
     realm = master_line[8]
     access_version = master_line[7]
@@ -256,7 +256,7 @@ def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=F
 
 
 def mp_newdataset(file_varset):
-    '''
+    """
     mapping noncmip data to CMIP format
 
     Parameters: 
@@ -267,7 +267,7 @@ def mp_newdataset(file_varset):
     Return:
     -------------
     xarray under CMIP format
-    '''    
+    """    
     file=file_varset[0]
     var_set=file_varset[1]
     var_info_dict=file_varset[2]
@@ -396,14 +396,14 @@ def mp_newdataset(file_varset):
 
 
 def multi_combine(dataset_list):
-    '''
+    """
     Combine dataset by time and write as netCDF file
 
     Parameters:
     ------------
     dataset_list : list[]
         A list contain all the dataet (timerange:1850-2014) of one variable
-    '''
+    """
     var=dataset_list[0]
     ds_list=dataset_list[1]
     new_nc_path=dataset_list[2]
@@ -491,7 +491,7 @@ def write_cmorised_data(dataset_list):
 
 
 def new_netcdf(non_cmip_path, s_dic, var_dict_out, new_nc_path, merge=False):
-    '''
+    """
     parameters:
     ----------
     non_cmip_path : str
@@ -502,7 +502,7 @@ def new_netcdf(non_cmip_path, s_dic, var_dict_out, new_nc_path, merge=False):
         key is variables name and value is variables information.
     new_nc_path : str
         path to save the new NETcdf file
-    '''
+    """
     time_start=time.time()
 
     dataset_list = get_variable_from_file(s_dic, non_cmip_path, new_nc_path, var_dict_out)
