@@ -14,6 +14,7 @@ import numpy as np
 import multiprocessing as mp
 from multiprocessing import Pool
 from collections import defaultdict
+from importlib.resources import files
 
 os.environ['ANCILLARY_FILES'] = '/g/data/p66/CMIP6/APP_ancils'
 from .app_functions import *
@@ -210,7 +211,7 @@ def merge_dict_to_list(dataset_dict, new_nc_path):
 
 
 def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=False, merge=False):
-    '''
+    """
     Main function, trigger the whole mapping process
 
     Parameters:
@@ -221,10 +222,9 @@ def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=F
         path to save the new CMIP format dile
     config_path: str
         path to ilamb config file
-    '''
+    """
     merge_dataset_dict_list=[]
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    master_map_path=os.path.join(script_dir, 'master_map.csv')
+    master_map_path=files("access_med_tools").joinpath("master_map.csv")
     var_mapping_dic = Parse_config_var(mip_vars_dict, master_map_path)
     if ESM1_6:
         for output in outputs:
