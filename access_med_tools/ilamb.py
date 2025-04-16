@@ -3,8 +3,9 @@ import glob
 import os
 import xarray
 import yaml
-from .utilities import MyParser
-from .CMORise import generate_cmip
+import copy
+from utilities import MyParser
+from CMORise import generate_cmip
 
 rootpath = {
     "CMIP6": ["/g/data/fs38/publications/CMIP6", "/g/data/oi10/replicas/CMIP6","/g/data/zv30/cmip/CMIP6"],
@@ -36,7 +37,7 @@ get_path_function = {
     "CMIP5": get_CMIP5_path
 }
 
-def add_model_to_tree(ilamb_root, mip, institute, dataset, project, exp = None, ensemble = None, path = None, variables = None, output = None, output_range = None):
+def add_model_to_tree(ilamb_root, merge, mip, institute, dataset, project, exp = None, ensemble = None, path = None, variables = None, output = None, output_range = None):
     """
     """
 
@@ -55,32 +56,51 @@ def add_model_to_tree(ilamb_root, mip, institute, dataset, project, exp = None, 
                         raise ValueError("start or end in the output_range is not correct")
                 else:
                     raise ValueError("Format of output_range is not correct, please input a list [start, end]")
+                
+            elif isinstance(output,int):
+                if os.path.isdir(f"{path}/output{output:03d}"):
+                    output_list=[f"output{output:03d}"]
             elif isinstance(output,str):
-                output_list=list(output)
+                if os.path.isdir(f"{path}/output{int(output):03d}"):
+                    output_list=[f"output{int(output):03d}"]
             elif isinstance(output,list):
-                output_list=output
+                output_list=[f"output{num:03d}" for num in output]
+            else:
+                raise ValueError("Wrong type of input value")
             model_root=f"{ilamb_root}/MODELS/{dataset}"
             Path(model_root).mkdir(parents=True,exist_ok=True)
-            generate_cmip(noncmip_path,model_root,variables_dict,outputs=output_list, ESM1_6=True)
+            generate_cmip(noncmip_path,model_root,variables_dict, outputs=output_list, ESM1_6=True, merge=merge)
         
         else:
-            if path == None:
+            if path is None:
                 path = rootpath['non-CMIP'][0]
+            if variables is None:
+                variables_dict=mip_vars.pop('Omon')
+            else:
+                for item in mip_vars.items():
+                    varlist=copy.deepcopy(item[1])
+                    for var in varlist:
+                        if var not in variables:
+                            mip_vars[item[0]].pop(mip_vars[item[0]].index(var))
+                for key in copy.deepcopy(mip_vars):
+                    if mip_vars[key] == []:
+                        mip_vars.pop(key)
+                variables_dict=mip_vars                   
 
             noncmip_path=f"{path}/{dataset}/{exp}"
             model_root=f"{ilamb_root}/MODELS/{dataset}/{exp}"
             Path(model_root).mkdir(parents=True,exist_ok=True)
-            mip_vars.pop('Omon')
-            generate_cmip(noncmip_path,model_root,mip_vars)
+            print(variables_dict)
+            if 'Omon' in variables_dict:
+                variables_dict.pop('Omon')
+
+            generate_cmip(noncmip_path,model_root,variables_dict)
     
     else:
         print(f"Adding {dataset} to the ILAMB Tree")
         model_root = f"{ilamb_root}/MODELS/{dataset}/{exp}/{ensemble}"
         Path(model_root).mkdir(parents=True, exist_ok=True)
 
-    
-
-    
         for frequency, vars in mip_vars.items():
             for var in vars:
                 for path in rootpath[project]:
@@ -144,9 +164,27 @@ def tree_generator():
         nargs="+",
         help="Path of the ILAMB-ROOT",
     )
+
+    parser.add_argument(
+        '--merge',
+        default=False,
+        nargs="+",
+        help="Merge multiple outputs",
+    )
+
     args = parser.parse_args()
     dataset_file = args.datasets[0]
     ilamb_root = args.ilamb_root[0]
+    merge = args.merge[0]
+
+    if isinstance(merge, bool):
+        merge = merge
+    if merge.lower() in ('yes', 'true', 't', '1'):
+        merge = True
+    elif merge.lower() in ('no', 'false', 'f', '0'):
+        merge = False
+    else:
+        merge = False
 
     Path(ilamb_root).mkdir(parents=True, exist_ok=True)
     try:
@@ -159,9 +197,8 @@ def tree_generator():
         data = yaml.safe_load(file)
 
     datasets = data["datasets"]
-
     for dataset in datasets:
-        add_model_to_tree(**dataset, ilamb_root=ilamb_root)
+        add_model_to_tree(**dataset, ilamb_root=ilamb_root, merge=merge)
     
     return
 

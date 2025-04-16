@@ -6,15 +6,17 @@ import time
 import gc
 import pandas as pd
 import csv
+import cftime
 import glob
 import xarray as xr
 import datetime
 import numpy as np
 import multiprocessing as mp
 from multiprocessing import Pool
+from collections import defaultdict
 
 os.environ['ANCILLARY_FILES'] = '/g/data/p66/CMIP6/APP_ancils'
-from .app_functions import *
+from app_functions import *
 
 #GLOBAL
 UM_realms = [
@@ -61,7 +63,7 @@ def Parse_config_var(var_dict, master_filename):
     return result
 
 
-def get_filestructure(master_line, history_path):
+def get_filestructure(master_line, history_path, ESM1_6=False):
     '''
     Find path to each variable
 
@@ -79,15 +81,32 @@ def get_filestructure(master_line, history_path):
     realm = master_line[8]
     access_version = master_line[7]
     access_vars = master_line[2]
-    if os.path.exists(history_path + '/atm/netCDF/link/'):
-        atm_file_struc = '/atm/netCDF/link/'
-    else:
-        atm_file_struc = '/atm/netCDF/'
-    if realm in UM_realms or access_version == 'both':
-        if cmipvar in ('tasmax', 'tasmin'):
-            file_structure = atm_file_struc + '*_dai.nc'
+    if ESM1_6:
+        print(history_path + 'atmosphere/netCDF')
+        if os.path.exists(history_path + 'atmosphere/netCDF'):
+            print('successfully find data')
+            atm_file_struc = 'atmosphere/netCDF/'
+        elif os.path.exists(history_path + 'atmosphere/NetCDF'):
+            print('successfully find data')
+            atm_file_struc = 'atmosphere/NetCDF/'
         else:
-            file_structure = atm_file_struc + '*_mon.nc'
+            raise FileNotFoundError(f"Can't find path based on parameter you provide{history_path}")
+    else:
+        if os.path.exists(history_path + '/atm/netCDF/link/'):
+            atm_file_struc = '/atm/netCDF/link/'
+        else:
+            atm_file_struc = '/atm/netCDF/'
+    if realm in UM_realms or access_version == 'both':
+        if ESM1_6:
+            if cmipvar in ('tasmax', 'tasmin'):
+                file_structure = atm_file_struc + 'aiihca.pe*.nc'
+            else:
+                file_structure = atm_file_struc + 'aiihca.pa*.nc'
+        else:
+            if cmipvar in ('tasmax', 'tasmin'):
+                file_structure = atm_file_struc + '*_dai.nc'
+            else:
+                file_structure = atm_file_struc + '*_mon.nc'
     elif realm == 'ocean':
         file_structure = '/ocn/ocean_month.nc-*'
     elif realm == 'ocnBgchem':
@@ -113,7 +132,8 @@ def get_filestructure(master_line, history_path):
     return file_structure
 
 
-def create_result_dict(var_mapping_dic, history_path):
+
+def create_result_dict(var_mapping_dic, history_path, ESM1_6=False):
     """
     Create a temp dictionary which contain variable informations
 
@@ -132,7 +152,7 @@ def create_result_dict(var_mapping_dic, history_path):
     result_dict={}
     for key in var_mapping_dic.keys():
         temp_list = [key]+var_mapping_dic[key]
-        file_structure = get_filestructure(temp_list, history_path)
+        file_structure = get_filestructure(temp_list, history_path, ESM1_6)
         result_dict[temp_list[0]] = temp_list[1:]
         result_dict[temp_list[0]].append(file_structure)
     return result_dict
@@ -160,8 +180,36 @@ def create_structure_dict(result_dict):
         structure_dict[result_dict[item][-1]].append(item)
     return structure_dict
 
+def merge_dict_to_list(dataset_dict, new_nc_path):
+    """
+    Merge multiple results to one list
 
-def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=False):
+    Parameters:
+    ------------
+    dataset_dict : dict{}
+        A dictionary contain variable informations
+    
+    new_nc_path : str
+        Path to store the result
+
+    Return:
+    -------------
+    List which have the merged information 
+
+    """
+    merged = defaultdict(list)
+    new_path=f"{new_nc_path}/merged"
+    for d in dataset_dict:
+        for key, value in d.items():
+            merged[key].extend(value[0])
+    for key in merged:
+        merged[key]=[merged[key],new_path]
+    if not os.path.isdir(new_path):
+        os.makedirs(new_path)
+    return [[key]+value for key, value in merged.items()]
+
+
+def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=False, merge=False):
     '''
     Main function, trigger the whole mapping process
 
@@ -174,21 +222,35 @@ def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=F
     config_path: str
         path to ilamb config file
     '''
-    master_map_path='./master_map.csv'
+    merge_dataset_dict_list=[]
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    master_map_path=os.path.join(script_dir, 'master_map.csv')
     var_mapping_dic = Parse_config_var(mip_vars_dict, master_map_path)
     if ESM1_6:
         for output in outputs:
             output_path = f"{noncmip_path}/{output}/"
-            result_dict = create_result_dict(var_mapping_dic, output_path)
+            result_dict = create_result_dict(var_mapping_dic, output_path, ESM1_6=True)
             structure_dict = create_structure_dict(result_dict)
             new_path=f"{new_nc_path}/{output}"
-            new_netcdf(output_path, structure_dict, result_dict, new_path)
+
+            if len(outputs)>1 and merge:
+                merge_dataset_dict_list.append(new_netcdf(output_path, structure_dict, result_dict, new_path, merge))
+            else:
+                new_netcdf(output_path, structure_dict, result_dict, new_path)
+        if merge:
+            time_start=time.time()
+            dataset_list=merge_dict_to_list(merge_dataset_dict_list, new_nc_path)
+            write_cmorised_data(dataset_list)
+            time_end=time.time()
+            time_cost=time_end-time_start
+            print('total_time_cost:',time_cost)
 
     else:
         history_path = noncmip_path + '/history/'
         var_mapping_dic = Parse_config_var(mip_vars_dict, master_map_path)
         result_dict = create_result_dict(var_mapping_dic, history_path)
         structure_dict = create_structure_dict(result_dict)
+
         new_netcdf(history_path, structure_dict, result_dict, new_nc_path)
 
 
@@ -219,7 +281,10 @@ def mp_newdataset(file_varset):
             t1=datetime.datetime(int(temp_t[:4])+1,1,1)
         else:
             t1=datetime.datetime(int(temp_t[:4]),int(temp_t[5:7])+1,1)
-        return np.asarray([np.datetime64(t0),np.datetime64(t1)])
+        if t0.year < 1678 or t1.year > 2262:
+            return np.asarray([cftime.DatetimeProlepticGregorian(t0.year, t0.month, t0.day),cftime.DatetimeProlepticGregorian(t1.year, t1.month, t1.day)])
+        else:
+            return np.asarray([np.datetime64(t0),np.datetime64(t1)])
 
     def addlatb(lats):
         gap=(lats[1]-lats[0])/2
@@ -321,8 +386,6 @@ def mp_newdataset(file_varset):
             temp_ds=temp_ds.assign_coords(depth=depth_val)
             temp_ds=temp_ds.assign(depth_bnds=(['depth','bnds'],depth_bounds))
         
-        # if var in ['rsus', 'tasmax', 'tasmin', 'cVeg', 'rlus', 'lai', 'nbp', 'cSoil']:
-        #     temp_ds.time.encoding['units']='days since 1850-1-1 00:00:00' 
         
         if var_name not in ds_dict.keys():
             ds_dict[var_name]=temp_ds
@@ -427,7 +490,7 @@ def write_cmorised_data(dataset_list):
     pool_process(multi_combine, dataset_list)
 
 
-def new_netcdf(non_cmip_path,s_dic,var_dict_out,new_nc_path):
+def new_netcdf(non_cmip_path, s_dic, var_dict_out, new_nc_path, merge=False):
     '''
     parameters:
     ----------
@@ -443,6 +506,10 @@ def new_netcdf(non_cmip_path,s_dic,var_dict_out,new_nc_path):
     time_start=time.time()
 
     dataset_list = get_variable_from_file(s_dic, non_cmip_path, new_nc_path, var_dict_out)
+
+    if merge:
+        return {item[0]: item[1:] for item in dataset_list}
+    
     if not os.path.isdir(new_nc_path):
         os.makedirs(new_nc_path)
     write_cmorised_data(dataset_list)

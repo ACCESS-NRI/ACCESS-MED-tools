@@ -33,6 +33,8 @@ from scipy.interpolate import interp1d
 warnings.simplefilter(action='ignore', category=FutureWarning)
 np.set_printoptions(threshold=sys.maxsize)
 
+os.environ['ANCILLARY_FILES'] = '/g/data/p66/CMIP6/APP_ancils'
+
 # Global Variables
 #-----------------------------------
 ancillary_path = os.environ.get('ANCILLARY_FILES')+'/'
@@ -265,6 +267,26 @@ def calcOverturning(transList,typ):
                 return tmp
 
 #Compute monthly average of daily values (for 2D variables)
+# def monthAve(var,time):
+#     datelist = time.asComponentTime()
+#     monthave = []
+#     month = datelist[0].month
+#     val_sum = var[0,:,:]
+#     count = 1
+#     for index, d in enumerate(datelist[1:]):
+#         if d.month==month: #same month 
+#             count += 1
+#             val_sum += var[index+1,:,:] #add value to sum
+#         else: #new month
+#             monthave.append(val_sum/count) #calculate average for previous month and add to list
+#             val_sum = var[index+1,:,:] #get first value for the new month
+#             count = 1
+#             month = d.month
+#     #append last month to list 
+#     monthave.append(val_sum/count)
+#     monthave_shape = np.shape(np.array(monthave))
+#     return np.array(monthave)
+
 def monthAve(ds, method="mean"):
     if method == "mean":
         monthly_ds = ds.resample(time="M").mean()
@@ -854,18 +876,48 @@ def areacella(nlat):
     f.close()
     return vals
 
+# def landFrac(nlat):
+#     if nlat == 145:
+#         f = xr.open_dataset(f'{ancillary_path}esm_landfrac.nc')
+#     if nlat == 144:
+#         f = xr.open_dataset(f'{ancillary_path}cm2_landfrac.nc')
+#     # print(f)
+#     # vals = np.float32(f.fld_s03i395[0,:,:]).fill(0)#changed***
+#     vals = np.float32(f.fld_s03i395[0,:,:])
+#     # print(np.float32(f.fld_s03i395[0,:,:]))
+#     # print(vals)
+#     f.close()
+#     return vals
 def landFrac(nlat):
-    if nlat == 145:
-        f = xr.open_dataset(f'{ancillary_path}esm_landfrac.nc')
-    if nlat == 144:
-        f = xr.open_dataset(f'{ancillary_path}cm2_landfrac.nc')
-    # print(f)
-    # vals = np.float32(f.fld_s03i395[0,:,:]).fill(0)#changed***
-    vals = np.float32(f.fld_s03i395[0,:,:])
-    # print(np.float32(f.fld_s03i395[0,:,:]))
-    # print(vals)
-    f.close()
-    return vals
+        """
+        Load land fraction data based on the given latitude resolution (nlat).
+        
+        Parameters:
+            nlat (int): The number of latitude points (either 145 or 144).
+        
+        Returns:
+            np.ndarray: A NumPy array containing the land fraction values.
+        
+        Raises:
+            ValueError: If nlat is not 145 or 144.
+        """
+        # Mapping of nlat values to corresponding file names
+        file_map = {
+            145: 'esm_landfrac.nc',
+            144: 'cm2_landfrac.nc'
+        }
+        
+        # Validate nlat input
+        if nlat not in file_map:
+            raise ValueError(f"Unsupported nlat value: {nlat}. Only 145 or 144 are allowed.")
+        
+        file_path = f"{ancillary_path}{file_map[nlat]}"
+        
+        # Open dataset safely using 'with' to ensure proper file handling
+        with xr.open_dataset(file_path) as ds:
+            vals = ds.fld_s03i395.isel(time=0).astype(np.float32).values  # Convert to float32
+        
+        return vals
 
 def fracLut(var,nwd):
     #nwd (non-woody vegetation only) - tiles 6,7,9,11 only
@@ -1004,8 +1056,8 @@ def calc_hemi_seaice_extent(aice,tarea,lat,hemi):
     varn = np.sum(var)
     return varn
 
-#calculate weighted average using tile fractions
-#sum of variable for each tile 
+# calculate weighted average using tile fractions
+# sum of variable for each tile 
 # multiplied by tile fraction
 def tileAve(var,tileFrac,lfrac=1):
     var = np.asarray(var[:])
@@ -1036,6 +1088,96 @@ def tileAve(var,tileFrac,lfrac=1):
         else:
             raise Exception('could not apply landFrac')
     return vout
+
+# def tileAve(var, tileFrac, lfrac=True):
+#         """
+#         Compute the area-weighted average of a variable over tiles, supporting xarray.Dataset input.
+
+#         Parameters:
+#         -----------
+#         var : np.ndarray or xarray.DataArray
+#             A 4D NumPy array (time, tiles, lat, lon) or an xarray DataArray.
+#         tileFrac : xarray.Dataset, xarray.DataArray, or np.ndarray
+#             The tile fraction data. If an xarray.Dataset, a variable must be selected.
+#             Expected shape: (tiles, lat, lon) or (time, tiles, lat, lon).
+#         lfrac : bool, optional (default=True)
+#             If True, applies a land fraction correction.
+
+#         Returns:
+#         --------
+#         xarray.DataArray or np.ndarray
+#             A 3D array (time, lat, lon) containing the weighted sum, with metadata retained if xarray is used.
+#         """
+        
+#         # Convert `var` to NumPy if it's an xarray DataArray
+#         if isinstance(var, xr.DataArray):
+#             time_dim, tile_dim, lat_dim, lon_dim = var.dims  # Get correct dimension names
+#             var_data = var.values  # Extract NumPy array
+#         else:
+#             var_data = np.asarray(var, dtype=np.float32)
+#             time_dim, lat_dim, lon_dim = "time", "lat", "lon"  # Default dims if not using xarray
+
+#         # Extract dimensions
+#         time_steps, num_tiles, lat, lon = var_data.shape
+
+#         # Ensure `tileFrac` is an xarray DataArray
+#         if isinstance(tileFrac, xr.Dataset):
+#             tileFrac = tileFrac[list(tileFrac.data_vars)[0]]  # Select the first variable in the dataset
+        
+#         if isinstance(tileFrac, xr.DataArray):
+#             tileFrac = tileFrac.values  # Convert to NumPy array
+
+#         # Validate `tileFrac` dimensions
+#         if tileFrac.shape not in [(num_tiles, lat, lon), (time_steps, num_tiles, lat, lon)]:
+#             raise ValueError(f"Invalid tileFrac shape: {tileFrac.shape}. Expected (tiles, lat, lon) or (time, tiles, lat, lon).")
+
+#         # Initialize output array
+#         vout = np.zeros((time_steps, lat, lon), dtype=np.float32)
+
+#         # Compute weighted sum over PFT tiles
+#         if tileFrac.ndim == 3:  # (tiles, lat, lon)
+#             for i in range(num_tiles):
+#                 vout += var_data[:, i, :, :] * tileFrac[i, :, :]
+#         elif tileFrac.ndim == 4:  # (time, tiles, lat, lon)
+#             for i in range(num_tiles):
+#                 vout += var_data[:, i, :, :] * tileFrac[:, i, :, :]
+
+#         # Apply land fraction correction if enabled
+#         if lfrac:
+#             landfrac = landFrac(lat)  # Use dynamic land fraction based on latitude size
+#             vout *= landfrac
+
+#         # Return as xarray.DataArray if input was xarray, using correct dimensions
+#         if isinstance(var, xr.DataArray):
+#             return xr.DataArray(
+#                 vout, 
+#                 dims=(time_dim, lat_dim, lon_dim), 
+#                 coords={time_dim: var.coords[time_dim], lat_dim: var.coords[lat_dim], lon_dim: var.coords[lon_dim]}
+#             )
+
+#         return vout
+
+# def tileSum(var, lfrac=True):
+#         """
+#         Sums over the second dimension (z) of a 4D array and optionally applies land fraction.
+
+#         Parameters:
+#         - var (numpy array): 4D array with shape (t, z, y, x).
+#         - lfrac (bool, optional): Whether to apply land fraction correction. Default is True.
+
+#         Returns:
+#         - vout (numpy array): 3D summed array with shape (t, y, x).
+#         """
+#         t, z, y, x = var.shape
+#         vout = np.ma.sum(var, axis=1, dtype=np.float32)  # Summing over 'z' dimension
+
+#         if lfrac:
+#             if y in {144, 145}:  # Check if y is 144 or 145
+#                 vout *= landFrac(y)  # Apply land fraction
+#             else:
+#                 raise ValueError(f"Unsupported y-dimension {y} for landFrac application.")
+
+#         return vout
 
 def tileFraci317():
     f = xr.open_dataset(f'{ancillary_path}cm2_tilefrac.nc')
