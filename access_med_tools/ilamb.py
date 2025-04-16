@@ -3,6 +3,7 @@ import glob
 import os
 import xarray
 import yaml
+import copy
 from utilities import MyParser
 from CMORise import generate_cmip
 
