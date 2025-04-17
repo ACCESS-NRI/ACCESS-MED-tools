@@ -167,24 +167,15 @@ def tree_generator():
 
     parser.add_argument(
         '--merge',
-        default=False,
-        nargs="+",
+        action='store_true',
         help="Merge multiple outputs",
+
     )
 
     args = parser.parse_args()
     dataset_file = args.datasets[0]
     ilamb_root = args.ilamb_root[0]
-    merge = args.merge[0]
-
-    if isinstance(merge, bool):
-        merge = merge
-    if merge.lower() in ('yes', 'true', 't', '1'):
-        merge = True
-    elif merge.lower() in ('no', 'false', 'f', '0'):
-        merge = False
-    else:
-        merge = False
+    merge = args.merge
 
     Path(ilamb_root).mkdir(parents=True, exist_ok=True)
     try:
