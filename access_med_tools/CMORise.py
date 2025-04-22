@@ -90,6 +90,8 @@ def get_filestructure(master_line, history_path, ESM1_6=False):
         elif os.path.exists(history_path + 'atmosphere/NetCDF'):
             print('successfully find data')
             atm_file_struc = 'atmosphere/NetCDF/'
+        elif os.path.exists(history_path + 'atmosphere'):
+            return
         else:
             raise FileNotFoundError(f"Can't find path based on parameter you provide{history_path}")
     else:
@@ -154,6 +156,8 @@ def create_result_dict(var_mapping_dic, history_path, ESM1_6=False):
     for key in var_mapping_dic.keys():
         temp_list = [key]+var_mapping_dic[key]
         file_structure = get_filestructure(temp_list, history_path, ESM1_6)
+        if not file_structure:
+            return
         result_dict[temp_list[0]] = temp_list[1:]
         result_dict[temp_list[0]].append(file_structure)
     return result_dict
@@ -230,6 +234,8 @@ def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=F
         for output in outputs:
             output_path = f"{noncmip_path}/{output}/"
             result_dict = create_result_dict(var_mapping_dic, output_path, ESM1_6=True)
+            if not result_dict:
+                continue
             structure_dict = create_structure_dict(result_dict)
             new_path=f"{new_nc_path}/{output}"
 
