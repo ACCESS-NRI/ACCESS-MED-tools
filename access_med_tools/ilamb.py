@@ -15,7 +15,7 @@ rootpath = {
 
 mip_vars ={
     'Emon':['cSoil'],
-    'Lmon':['cVeg','gpp','lai','nbp','ra','rh','tsl'],
+    'Lmon':['cVeg','gpp','lai','nbp','ra','rh','tsl','mrro'],
     'Amon':['evspsbl','hfls','hfss','hurs','pr','rlds','rlus','rsds','rsus','tasmax','tasmin','tas'],
     'Omon':['hfds'],
     }
@@ -75,7 +75,8 @@ def add_model_to_tree(ilamb_root, merge, mip, institute, dataset, project, exp =
             if path is None:
                 path = rootpath['non-CMIP'][0]
             if variables is None:
-                variables_dict=mip_vars.pop('Omon')
+                mip_vars.pop('Omon')
+                variables_dict = mip_vars
             else:
                 for item in mip_vars.items():
                     varlist=copy.deepcopy(item[1])
