@@ -185,7 +185,7 @@ def create_structure_dict(result_dict):
         structure_dict[result_dict[item][-1]].append(item)
     return structure_dict
 
-def merge_dict_to_list(dataset_dict, new_nc_path):
+def merge_dict_to_list(dataset_dict, new_nc_path, start_num, end_num):
     """
     Merge multiple results to one list
 
@@ -203,7 +203,7 @@ def merge_dict_to_list(dataset_dict, new_nc_path):
 
     """
     merged = defaultdict(list)
-    new_path=f"{new_nc_path}/merged"
+    new_path=f"{new_nc_path}/merged{start_num}_{end_num}"
     for d in dataset_dict:
         for key, value in d.items():
             merged[key].extend(value[0])
@@ -245,7 +245,9 @@ def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=F
                 new_netcdf(output_path, structure_dict, result_dict, new_path)
         if merge:
             time_start=time.time()
-            dataset_list=merge_dict_to_list(merge_dataset_dict_list, new_nc_path)
+            start_num=outputs[0][-3:]
+            end_num=outputs[-1][-3:]
+            dataset_list=merge_dict_to_list(merge_dataset_dict_list, new_nc_path, start_num, end_num)
             write_cmorised_data(dataset_list)
             time_end=time.time()
             time_cost=time_end-time_start
@@ -278,7 +280,11 @@ def mp_newdataset(file_varset):
     var_set=file_varset[1]
     var_info_dict=file_varset[2]
     ds_dict={}
-    ds=xr.open_dataset(file)
+    try:
+        ds=xr.open_dataset(file)
+    except:
+        print(f"cannot open {file}")
+        return
 
     def addtb(time):
         temp_t=str(time)
@@ -476,6 +482,7 @@ def get_variable_from_file(s_dic, non_cmip_path, new_nc_path, var_info_dict):
         file_set+=[[f, s_dic[path], var_info_dict] for f in glob.glob(non_cmip_path+path)]
         var_sets+=s_dic[path]
     results = pool_process(mp_newdataset, file_set)
+    results =  [r for r in results if r is not None]
     
     for var in var_sets:
         temp_list=[f[var] for f in results if var in f.keys()]
