@@ -42,11 +42,14 @@ def add_model_to_tree(ilamb_root, merge, mip, institute, dataset, project, exp =
     """
 
     if mip == 'non-CMIP':
+        if exp is None:
+            exp='piControl'
         print(f"CMORisering {exp} and add result to ILAMB Tree")
         if dataset == 'ACCESS-ESM1-6':
             noncmip_path=path
             variables_dict = mip_vars
-            variables_dict.pop('Omon')
+            if 'Omon' in variables_dict:
+                variables_dict.pop('Omon')
             if output_range is not None:
                 if len(output_range) == 2:
                     if os.path.isdir(f"{path}/output{output_range[0]:03d}") and os.path.isdir(f"{path}/output{output_range[1]:03d}"):
@@ -67,7 +70,7 @@ def add_model_to_tree(ilamb_root, merge, mip, institute, dataset, project, exp =
                 output_list=[f"output{num:03d}" for num in output]
             else:
                 raise ValueError("Wrong type of input value")
-            model_root=f"{ilamb_root}/MODELS/{dataset}"
+            model_root=f"{ilamb_root}/MODELS/{dataset}/{exp}"
             Path(model_root).mkdir(parents=True,exist_ok=True)
             generate_cmip(noncmip_path,model_root,variables_dict, outputs=output_list, ESM1_6=True, merge=merge)
         
@@ -136,8 +139,13 @@ def add_model_to_tree(ilamb_root, merge, mip, institute, dataset, project, exp =
                     files = unique_files
 
                     if len(files) > 1:
-                        with xarray.open_mfdataset(files, use_cftime=True, combine_attrs='drop_conflicts') as f:
-                            f.to_netcdf(f"{model_root}/{var}.nc")
+                        time_coder = xarray.coders.CFDatetimeCoder(use_cftime=True)
+                        if os.path.islink(f"{model_root}/{var}.nc"):
+                            Path(f"{model_root}/{var}.nc").unlink()
+                        elif os.path.isfile(f"{model_root}/{var}.nc"):
+                            os.remove(f"{model_root}/{var}.nc")
+                            
+                        concat_time(input_files=files, output_file=f"{model_root}/{var}.nc")
                     else:
                         try:
                             Path(f"{model_root}/{var}.nc").unlink()
@@ -146,6 +154,37 @@ def add_model_to_tree(ilamb_root, merge, mip, institute, dataset, project, exp =
                         Path(f"{model_root}/{var}.nc").symlink_to(f"{files[0]}")
 
     return
+
+
+def concat_time(input_files, output_file, compression=True, level=3):
+    """
+    Concatenate NetCDF files along the time dimension using NCO (ncrcat).
+
+    Parameters
+    ----------
+    input_files : list of str
+        List of NetCDF file paths (must be time-sorted).
+    output_file : str
+        Path to the output NetCDF file.
+    compression : bool, optional
+        Whether to enable NetCDF4 compression (default: True).
+    level : int, optional
+        Compression level 0–9 (default: 3).
+    """
+    if not input_files:
+        raise ValueError("No input files provided")
+
+    input_files = sorted(input_files)
+
+    cmd = ["ncrcat", "-O"]
+    if compression:
+        cmd += ["-7", f"-L{level}"]  # NetCDF4 classic + compression
+    cmd += input_files
+    cmd += [output_file]
+
+    print("Running:", " ".join(shlex.quote(c) for c in cmd))
+
+    subprocess.run(cmd, check=True)
 
 
 def tree_generator():
