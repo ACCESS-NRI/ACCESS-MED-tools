@@ -388,6 +388,11 @@ def mp_newdataset(file_varset):
     
         temp_ds=temp_ds.rename({'key':var_name})
         temp_ds[var_name].attrs['units']=temp_list[3]
+        if "units" not in temp_ds["time"].encoding:
+            temp_ds["time"].encoding.update({
+                "units": ds["time"].encoding.get("units", ""),
+                "calendar": ds["time"].encoding.get("calendar", "")
+            })
         temp_ds['time'].attrs=ds.time.attrs
         temp_ds['lat'].attrs=ds.lat.attrs
         temp_ds['lon'].attrs=ds.lon.attrs

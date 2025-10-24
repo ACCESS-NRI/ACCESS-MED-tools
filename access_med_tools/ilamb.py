@@ -4,6 +4,8 @@ import os
 import xarray
 import yaml
 import copy
+import subprocess
+import shlex
 from .utilities import MyParser
 from .CMORise import generate_cmip
 
@@ -78,8 +80,9 @@ def add_model_to_tree(ilamb_root, merge, mip, institute, dataset, project, exp =
             if path is None:
                 path = rootpath['non-CMIP'][0]
             if variables is None:
-                mip_vars.pop('Omon')
-                variables_dict = mip_vars
+                if 'Omon' in mip_vars:
+                    mip_vars.pop('Omon')
+                    variables_dict = mip_vars
             else:
                 for item in mip_vars.items():
                     varlist=copy.deepcopy(item[1])
