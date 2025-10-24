@@ -2,6 +2,7 @@
 # File: parse_config_var.cpython-39.pyc (Python 3.9)
 
 import os
+import re
 import time
 import gc
 import pandas as pd
@@ -245,8 +246,8 @@ def generate_cmip(noncmip_path, new_nc_path,mip_vars_dict,outputs=None, ESM1_6=F
                 new_netcdf(output_path, structure_dict, result_dict, new_path)
         if merge:
             time_start=time.time()
-            start_num=outputs[0][-3:]
-            end_num=outputs[-1][-3:]
+            start_num=re.search(r'\d+', outputs[0]).group()
+            end_num=re.search(r'\d+', outputs[-1]).group()
             dataset_list=merge_dict_to_list(merge_dataset_dict_list, new_nc_path, start_num, end_num)
             write_cmorised_data(dataset_list)
             time_end=time.time()
